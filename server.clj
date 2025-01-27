@@ -3,6 +3,7 @@
             [babashka.cli :as cli]
             [babashka.pods :as pods]
             [babashka.deps :as deps]
+            [clojure.string :as str]
             [hiccup2.core :as html]))
 
 (pods/load-pod 'org.babashka/go-sqlite3 "0.1.0")
@@ -37,30 +38,83 @@
                 :from [:FOOD_GROUP]
                 :where [:in :FoodGroupName groupsWeWant]})
 
-(def foodSelect {:select [:FoodDescription :FoodID]
+(def foodSelect {:select [:MeasureDescription :FoodDescription :FoodID]
                  :from [:FOOD_NAME]
+                 :join [:CONVERSION-FACTOR [:using :FoodID]
+                        :MEASURE-NAME [:using :MeasureID]]
                  :where [:in :FoodGroupID foodGroupSelect]})
 
+(defn s->option [s] [:option s])
+
 (defn description->option [{description :FoodDescription id :FoodID}]
-  [:option {:value :FoodID} description])
+  [:option {:id id :value description}])
+
+(def foods (query foodSelect))
+(def byId (->> foods (group-by :FoodID)))
+(def foodIds (keys byId))
 
 (def foodNameOptions
-  (->> (query foodSelect)
-       (map description->option)))
+  (->> foods
+       (group-by :FoodID)
+       (map (fn [[FoodID xs]]
+         {:FoodID FoodID
+          :FoodDescription (:FoodDescription (first xs))
+          :MeasureDescription (str/join ";" (map :MeasureDescription xs))}))
+       (map (fn [{:keys [FoodDescription FoodID MeasureDescription ]}]
+         [:option {:id FoodID :value FoodDescription :data-measure MeasureDescription}]))))
 
-(defn index []
+(def cookfileOptions
+  (->> (fs/list-dir "./cook")
+       (map str)
+       (map s->option)))
+
+;; (defn tiptappn []
+;;   [:html
+;;        [:head
+;;         [:meta {:charset "UTF-8"}]
+;;         [:datalist {:id "food-names"} foodNameOptions]
+;;         [:datalist {:id "cook-files"} cookfileOptions]
+;;         [:script {:type "module" :src "tiptap.js"}]
+;;         [:script {:type "module" :src "index.js"}]
+;;         [:style "div#editor { min-height: 1lh };"]
+;;         [:title "le ebin recipe enterer"]]
+;;        [:body
+;;         [:h1 "i exist! and i think that's pretty cool."]
+;;         [:button.dialogpopper {:popovertarget "cookfiles"} "load existing file"]
+;;         [:dialog#cookfiles
+;;          [:form {:method "dialog"}
+;;           [:label {:id "cook-file-name"}
+;;            "cookfile name"
+;;            [:input {:list "cook-files" :name "filename" :autofocus "true"}]
+;;            [:button {:type "submit"} "Confirm"]]]]
+;;         [:dialog.food
+;;          [:form {:method "dialog"}
+;;            [:input {:list "food-names" :name "food" :autofocus "true"}]
+;;            [:button {:type "submit"} "Confirm"]]]
+;;         [:form {:method "POST"}
+;;           [:div#editor {:name "recipe"}]]]])
+
+(def concrete "https://cdnjs.cloudflare.com/ajax/libs/concrete.css/3.0.0/concrete.min.css")
+
+(defn index.html []
   (-> [:html
        [:head
         [:meta {:charset "UTF-8"}]
         [:datalist {:id "food-names"} foodNameOptions]
+        [:datalist {:id "cook-files"} cookfileOptions]
+        [:script {:type "module" :src "index.js"}]
+        [:script {:type "module" :src "custom-editor.js"}]
+        [:style "div#editor { min-height: 1lh };"]
+        [:link {:rel "stylesheet" :href concrete}]
         [:title "le ebin recipe enterer"]]
        [:body
-        [:h1 "i exist! and i think that's pretty cool."]]]
+        [:h1 "i exist! and i think that's pretty cool."]
+        [:custom-editor]]]
       html/html
       str))
 
 (defn -main [{:keys [filename] :as opts}]
-  (let [fn (get {:index.html index} (keyword filename))]
+  (let [fn (get {:index.html index.html} (keyword filename))]
     (println (fn))))
 
 (def cli-spec
