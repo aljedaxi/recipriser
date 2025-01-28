@@ -1,4 +1,4 @@
-import {Recipe} from 'https://esm.sh/@cooklang/cooklang-ts'
+import {c, cp, cc, c1c, input, field, fieldSet, fields, groups, genId, idedInput, prependKeys, text, recipize} from './util.js'
 
 const source = `
 >> source: https://www.dinneratthezoo.com/wprm_print/6796
@@ -10,51 +10,11 @@ Place the @apple juice{1.5%cups}, @banana{one sliced}, @frozen mixed berries{1.5
 Taste and add @honey{} if desired. Pour into two glasses and garnish with fresh berries and mint sprigs if desired.
 `;
 
-const c = t => document.createElement (t)
-const cp = t => props => {
-	const e = c (t)
-	for (const [k, v] of Object.entries(props)) e.setAttribute(k, v)
-	return e
-}
-const cc = t => props => children => {
-	const e = cp (t) (props)
-	for (const child of children) e.append(child)
-	return e
-}
-const c1c = t => child => {
-	const e = c (t)
-	e.append(child)
-	return e
-}
-const input = (name, value) => cp ('input') ({name, type: 'text', id: name, value})
-const field = (name, {value} = {}) => [
-	cc ('label') ({for: name, value}) (name),
-	input (name, value),
-]
-const fieldSet = (legend, children) =>
-	cc ('fieldset') ({id: legend}) ([ cc ('legend') ({}) ([legend]), ...children ])
-const fields = names =>
-	[...Object.entries(names)].flatMap(([name, value]) => field(name, {value}))
-
-const groups = props => [...Object.entries(props)].flatMap(([k, v]) => fieldSet(k, fields(v)))
 class Comp extends HTMLElement {
 	a = (...ks) => Object.fromEntries(ks.map(k => [k, this.getAttribute(k)]))
 	constructor() { super() }
 }
-class Step extends Comp {
-	connectedCallback() {
-		const {idx} = this.dataset
-		const set = fieldSet(`step ${idx}`, [])
-		for (const e of this.querySelectorAll('*')) {
-			set.appendChild(e)
-		}
-		this.append(set)
-	}
-}
 class Text extends Comp {
-	get step() {
-		return this.closest('recipe-step')
-	}
 	handleInput = e => {
 		const {inputType, data, target} = e
 		if (inputType === 'insertText' && data === '@') {
@@ -76,14 +36,13 @@ class Text extends Comp {
 	}
 	connectedCallback() {
 		const {value} = this.dataset
-		const id = 'uhhhh'
+		this.id = genId()
+		const {id} = this
 		this.input = cc ('textarea') ({name: id, id, rows: 1}) ([value?.trim() ?? ''])
 		this.input.addEventListener('input', this.handleInput)
 		this.append(this.input)
 	}
 }
-const genId = _ => globalThis.crypto.randomUUID ()
-const idedInput = id => name => rest => cp ('input') ({id: `${id}.${name}`, name: `${id}.${name}`, type: 'text', ...rest})
 class Ingredient extends HTMLElement {
 	constructor() {super()}
 	a = (...ks) => Object.fromEntries(ks.map(k => [k, this.getAttribute(k)]))
@@ -95,7 +54,7 @@ class Ingredient extends HTMLElement {
 		this.setAttribute('data-food-id', id)
 		this.querySelector('datalist')?.remove()
 		this.append(cc ('datalist') ({id: `${this.id}-measures`}) ([
-			...measure.split(';').map(cc ('option') ({}))
+			...measure.split(';').map(c1c ('option'))
 		]))
 	}
 	handleInput = e => {
@@ -126,16 +85,34 @@ class Cookware extends Comp {
 		this.append ('#', nameInput, '{', quantityInput, '}')
 	}
 }
-const mapKeys = f => o => Object.fromEntries(Object.entries(o).map(([k, v]) => [f(k), v]))
-const appendToKeys = s => mapKeys(k => `${s}${k}`)
-class Editor extends Comp {
+class Step extends Comp {
 	connectedCallback() {
-		const recipe = new Recipe(source)
-		const {metadata, steps} = recipe
-		this.append(...groups({metadata}))
-		this.append(...steps.map((step, idx) => cc ('recipe-step') ({'data-idx': idx + 1}) (
-			step.map(({type, ...rest}) => cp (`step-${type}`) (appendToKeys ('data-') (rest)))
-		)))
+		const {idx} = this.dataset
+		const set = fieldSet(`step ${idx}`, [])
+		for (const e of this.querySelectorAll('*')) {
+			set.appendChild(e)
+		}
+		this.append(set)
+	}
+}
+class Editor extends Comp {
+	fetchRecipe = path => fetch(new URL(path, window.location)).then(text).then(recipize)
+	step = (step, idx) => {
+		const id = `step-{idx + 1}`
+		return cc ('fieldset') ({id}) ([
+			c1c ('legend') (`step ${idx + 1}`),
+			...step.map(
+				({type, ...rest}) => cp (`step-${type}`) (prependKeys ('data-') (rest))
+			)
+		])
+	}
+	buildUi = ({metadata, steps}) => this.append(cc ('form') ({}) ([
+		...groups({metadata}),
+		...steps.map(this.step)
+	]))
+	connectedCallback() {
+		this.fetchRecipe('./cook/Vegan_Spaghetti_ai_Funghi_(Spaghetti_and_Mushrooms_in_Vegan_Cream_Sauce).cook')
+			.then(this.buildUi)
 	}
 }
 
