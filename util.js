@@ -21,12 +21,12 @@ export const field = (name, {value} = {}) => [
 	cc ('label') ({for: name, value}) (name),
 	input (name, value),
 ]
-export const fieldSet = (legend, children) =>
+export const fieldSet = legend => children =>
 	cc ('fieldset') ({id: legend}) ([ cc ('legend') ({}) ([legend]), ...children ])
 export const fields = names =>
 	[...Object.entries(names)].flatMap(([name, value]) => field(name, {value}))
 
-export const groups = props => [...Object.entries(props)].flatMap(([k, v]) => fieldSet(k, fields(v)))
+export const groups = props => [...Object.entries(props)].flatMap(([k, v]) => fieldSet(k) (fields(v)))
 export const genId = _ => globalThis.crypto.randomUUID ()
 export const idedInput = id => name => rest => cp ('input') ({id: `${id}.${name}`, name: `${id}.${name}`, type: 'text', ...rest})
 export const mapKeys = f => o => Object.fromEntries(Object.entries(o).map(([k, v]) => [f(k), v]))

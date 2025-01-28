@@ -1,4 +1,7 @@
+import {Recipe} from 'https://esm.sh/@cooklang/cooklang-ts'
+import set from 'https://esm.sh/lodash.set'
 import {c, cp, cc, c1c, input, field, fieldSet, fields, groups, genId, idedInput, prependKeys, text, recipize} from './util.js'
+const hasValue = (s = '') => s.trim().length > 0
 
 const source = `
 >> source: https://www.dinneratthezoo.com/wprm_print/6796
@@ -36,9 +39,9 @@ class Text extends Comp {
 	}
 	connectedCallback() {
 		const {value} = this.dataset
-		this.id = genId()
 		const {id} = this
-		this.input = cc ('textarea') ({name: id, id, rows: 1}) ([value?.trim() ?? ''])
+		const name = `${id}.value`
+		this.input = cc ('textarea') ({name, id: name, rows: 1}) ([value?.trim() ?? ''])
 		this.input.addEventListener('input', this.handleInput)
 		this.append(this.input)
 	}
@@ -64,7 +67,6 @@ class Ingredient extends HTMLElement {
 	}
 	connectedCallback() {
 		const {name = '', quantity = '', units = ''} = this.dataset
-		this.setAttribute('id', genId())
 		const {id} = this
 		this.nameInput = idedInput (id) ('name') ({value: name?.trim() ?? '', list: 'food-names'})
 		this.unitsInput = idedInput (id) ('units') ({value: units?.trim() ?? '', list: `${id}-measures`})
@@ -78,7 +80,6 @@ class Ingredient extends HTMLElement {
 class Cookware extends Comp {
 	connectedCallback() {
 		const {name, quantity} = this.dataset
-		this.setAttribute('id', genId())
 		const {id} = this
 		const nameInput = idedInput (id) ('name') ({value: name?.trim() ?? ''})
 		const quantityInput = idedInput (id) ('quantity') ({value: quantity?.trim() ?? ''})
@@ -87,19 +88,80 @@ class Cookware extends Comp {
 }
 class Editor extends Comp {
 	fetchRecipe = path => fetch(new URL(path, window.location)).then(text).then(recipize)
-	step = (step, idx) => {
-		const id = `step-${idx + 1}`
+	stepVerb = (step, i) => {
+		const id = `step[${i}]`
+		const steps = step.map(
+			({type, ...rest}, j) => cp (`step-${type}`) ({
+				id: `step[${i}][${j}]`,
+				...prependKeys ('data-') (rest),
+			})
+		)
 		return cc ('fieldset') ({id}) ([
-			c1c ('legend') (`step ${idx + 1}`),
-			...step.map(
-				({type, ...rest}) => cp (`step-${type}`) (prependKeys ('data-') (rest))
-			)
+			c1c ('legend') (`step ${i + 1}`),
+			...steps,
 		])
 	}
-	buildUi = ({metadata, steps}) => this.append(cc ('form') ({}) ([
-		...groups({metadata}),
-		...steps.map(this.step)
-	]))
+	form2json = formdata => {
+		const steps = {}
+		const metadata = {}
+		for (const k of formdata.keys()) {
+			if (/step/i.test(k)) {
+				set(steps, k, formdata.get(k))
+			} else {
+				metadata[k] = formdata.get(k)
+			}
+		}
+		const {step} = steps
+		return {metadata, steps: step}
+	}
+	form2recipe = formdata => {
+		const recipe = new Recipe()
+		const {metadata, steps} = this.form2json(formdata)
+		recipe.metadata = metadata
+		recipe.steps = steps.map((s, i) => s.map((x, j) => {
+			const {tagName} = this.querySelector (`#step\\[${i}\\]\\[${j}\\]`)
+			const type = tagName.replace(/STEP-/, '').toLowerCase()
+			return {type, ...x}
+		}))
+		return recipe
+	}
+	entries = o => [...Object.entries(o)]
+	formatMeta = r => this.entries(r.metadata).map(([k, v]) => `>> ${k}: ${v}`).join('\n')
+	formatIngredient = ({name, quantity, units}) =>
+		hasValue(units) ? `@${name}{${quantity}%${units}}` : `@${name}{${quantity}}`
+	formatSteps = r => r.steps
+		.map(s => s
+			 .map(({type, value, name, quantity, units}) =>
+				 type === 'text'       ? value
+			   : type === 'ingredient' ? this.formatIngredient({name, quantity, units})
+			   :                         value ?? name
+			 )
+			 .join(' '))
+		.join('\n\n')
+	format = r => [this.formatMeta(r), '\n', this.formatSteps(r)].join('\n')
+	dlString = s => download => {
+		const href = `data:text/plain;charset=utf-8,${encodeURIComponent(s)}`
+		const anchor = cp ('a') ({href, download})
+		anchor.click()
+	}
+	handleSubmit = e => {
+		e.preventDefault()
+		const recipe = this.form2recipe (new FormData(e.target))
+		const {metadata: {title}} = recipe
+		this.dlString (this.format(recipe)) (`${title}.cook`)
+	}
+	buildUi = ({metadata, steps}) => {
+		const form = cc ('form') ({}) ([
+			fieldSet ('actions') ([
+				cc ('button') ({type: 'button'}) (['fetch']),
+				cc ('button') ({type: 'submit'}) (['submit']),
+			]),
+			...groups({metadata}),
+			...steps.map(this.stepVerb)
+		])
+		form.addEventListener('submit', this.handleSubmit)
+		this.append(form)
+	}
 	connectedCallback() {
 		this.fetchRecipe('./cook/Vegan_Spaghetti_ai_Funghi_(Spaghetti_and_Mushrooms_in_Vegan_Cream_Sauce).cook')
 			.then(this.buildUi)

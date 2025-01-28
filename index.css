@@ -10,6 +10,10 @@ body {
     font-family: "IBM Plex Sans", serif;
 }
 legend {margin-block-end: 0; padding: 0;}
+fieldset#actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+}
 fieldset {
     padding: var(--s-2);
     margin-block-end: var(--s-2);
