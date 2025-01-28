@@ -106,10 +106,12 @@
         [:script {:type "module" :src "custom-editor.js"}]
         [:style "div#editor { min-height: 1lh };"]
         [:link {:rel "stylesheet" :href concrete}]
+        [:link {:rel "stylesheet" :href "./index.css"}]
         [:title "le ebin recipe enterer"]]
        [:body
-        [:h1 "i exist! and i think that's pretty cool."]
-        [:custom-editor]]]
+        [:main
+         [:h1 "enter recipe man"]
+         [:custom-editor]]]]
       html/html
       str))
 

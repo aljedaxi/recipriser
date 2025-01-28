@@ -26,7 +26,7 @@ const c1c = t => child => {
 	e.append(child)
 	return e
 }
-const input = (name, value) => cp ('input') ({name, id: name, value})
+const input = (name, value) => cp ('input') ({name, type: 'text', id: name, value})
 const field = (name, {value} = {}) => [
 	cc ('label') ({for: name, value}) (name),
 	input (name, value),
@@ -83,7 +83,7 @@ class Text extends Comp {
 	}
 }
 const genId = _ => globalThis.crypto.randomUUID ()
-const idedInput = id => name => rest => cp ('input') ({id: `${id}.${name}`, name: `${id}.${name}`, ...rest})
+const idedInput = id => name => rest => cp ('input') ({id: `${id}.${name}`, name: `${id}.${name}`, type: 'text', ...rest})
 class Ingredient extends HTMLElement {
 	constructor() {super()}
 	a = (...ks) => Object.fromEntries(ks.map(k => [k, this.getAttribute(k)]))
@@ -132,19 +132,6 @@ class Editor extends Comp {
 	connectedCallback() {
 		const recipe = new Recipe(source)
 		const {metadata, steps} = recipe
-		console.log({steps})
-		this.prepend(cc ('style') ({}) ([`
-			fieldset {
-				display: flex;
-				gap: 4px;
-				flex-flow: wrap;
-				align-items: center;
-			}
-			fieldset#metadata {
-				display: grid;
-				grid-template-columns: 1fr 2.4142135623730950488016887fr;
-			}
-		`]))
 		this.append(...groups({metadata}))
 		this.append(...steps.map((step, idx) => cc ('recipe-step') ({'data-idx': idx + 1}) (
 			step.map(({type, ...rest}) => cp (`step-${type}`) (appendToKeys ('data-') (rest)))
