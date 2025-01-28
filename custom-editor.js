@@ -85,16 +85,6 @@ class Cookware extends Comp {
 		this.append ('#', nameInput, '{', quantityInput, '}')
 	}
 }
-class Step extends Comp {
-	connectedCallback() {
-		const {idx} = this.dataset
-		const set = fieldSet(`step ${idx}`, [])
-		for (const e of this.querySelectorAll('*')) {
-			set.appendChild(e)
-		}
-		this.append(set)
-	}
-}
 class Editor extends Comp {
 	fetchRecipe = path => fetch(new URL(path, window.location)).then(text).then(recipize)
 	step = (step, idx) => {
@@ -117,7 +107,6 @@ class Editor extends Comp {
 }
 
 customElements.define('custom-editor', Editor)
-customElements.define('recipe-step', Step)
 customElements.define('step-text', Text)
 customElements.define('step-ingredient', Ingredient)
 customElements.define('step-cookware', Cookware)
