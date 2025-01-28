@@ -88,7 +88,7 @@ class Cookware extends Comp {
 class Editor extends Comp {
 	fetchRecipe = path => fetch(new URL(path, window.location)).then(text).then(recipize)
 	step = (step, idx) => {
-		const id = `step-{idx + 1}`
+		const id = `step-${idx + 1}`
 		return cc ('fieldset') ({id}) ([
 			c1c ('legend') (`step ${idx + 1}`),
 			...step.map(
