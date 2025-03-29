@@ -63,10 +63,17 @@
        (map (fn [{:keys [FoodDescription FoodID MeasureDescription ]}]
          [:option {:id FoodID :value FoodDescription :data-measure MeasureDescription}]))))
 
+(defn cookfile->option [f]
+  [:option {:value (str f)}
+   (-> f
+       fs/file-name
+       (str/replace #".cook$" "")
+       (str/replace #"_" " ")
+       (str/replace #"-" " "))])
+
 (def cookfileOptions
   (->> (fs/list-dir "./cook")
-       (map str)
-       (map s->option)))
+       (map cookfile->option)))
 
 ;; (defn tiptappn []
 ;;   [:html
@@ -110,7 +117,7 @@
         [:title "le ebin recipe enterer"]]
        [:body
         [:main
-         [:h1 "enter recipe man"]
+         [:h1 "enter swag man"]
          [:custom-editor]]]]
       html/html
       str))

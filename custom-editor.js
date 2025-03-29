@@ -68,8 +68,8 @@ class Ingredient extends HTMLElement {
 	connectedCallback() {
 		const {name = '', quantity = '', units = ''} = this.dataset
 		const {id} = this
-		this.nameInput = idedInput (id) ('name') ({value: name?.trim() ?? '', list: 'food-names'})
-		this.unitsInput = idedInput (id) ('units') ({value: units?.trim() ?? '', list: `${id}-measures`})
+		this.nameInput = idedInput (id) ('name') ({value: name?.trim() ?? '', list: 'food-names', autocorrect: 'off'})
+		this.unitsInput = idedInput (id) ('units') ({value: units?.trim() ?? '', list: `${id}-measures`, autocorrect: 'off'})
 		this.quantityInput = input(`${id}.quantity`, quantity?.trim() ?? 'some')
 		const {nameInput, unitsInput, quantityInput} = this
 		nameInput.addEventListener('input', this.handleInput)
@@ -148,23 +148,47 @@ class Editor extends Comp {
 		e.preventDefault()
 		const recipe = this.form2recipe (new FormData(e.target))
 		const {metadata: {title}} = recipe
-		this.dlString (this.format(recipe)) (`${title}.cook`)
+		this.dlString (this.format(recipe)) (`${title.replace(/\s+/g, '-')}.cook`)
+	}
+	defaultMetadataKeys = ['cuisine', 'description', 'image', 'locale', 'source.author', 'source.url', 'time', 'time.cook', 'time.prep', 'title', 'yield']
+	defaultMetadata = Object.fromEntries(this.defaultMetadataKeys.map(k => [k, '']))
+	newStep = i => this.stepVerb([{type: 'text'}], i)
+	addStep = e => {
+		const {target} = e
+		const {previousElementSibling} = target
+		if (previousElementSibling.tagName !== 'FIELDSET') {
+			return
+		}
+		const {id} = previousElementSibling
+		const {i} = id.match(/step\[(?<i>\d+)\]/).groups ?? {}
+		target.insertAdjacentElement('beforebegin', this.newStep(i ? parseInt(i, 10) + 1 : 1))
 	}
 	buildUi = ({metadata, steps}) => {
-		const form = cc ('form') ({}) ([
-			fieldSet ('actions') ([
-				cc ('button') ({type: 'button'}) (['fetch']),
-				cc ('button') ({type: 'submit'}) (['submit']),
+		const addStepButton = cc ('button') ({type: 'button'}) (['add step'])
+		addStepButton.addEventListener('click', this.addStep)
+		const form = cc ('form') ({id: 'main-form'}) ([
+			cc ('form') ({id: 'action-form'}) ([
+				fieldSet ('actions') ([
+					cc ('label') ({for: 'existing-file'}) (['existing file']),
+					cc ('input') ({id: 'existing-file', name: 'existing-file', type: 'text', list: 'cook-files', autocomplete: 'off'}) ([]),
+					cc ('button') ({type: 'submit'}) (['fetch']),
+					cc ('button') ({type: 'submit', form: 'main-form'}) (['submit']),
+				]),
 			]),
-			...groups({metadata}),
-			...steps.map(this.stepVerb)
+			...groups({metadata: {...this.defaultMetadata, ...metadata}}),
+			...steps.map(this.stepVerb),
+			addStepButton,
 		])
 		form.addEventListener('submit', this.handleSubmit)
 		this.append(form)
 	}
+	newUi = () => this.buildUi({metadata: {}, steps: [[{type: 'text'}]]})
 	connectedCallback() {
-		this.fetchRecipe('./cook/Vegan_Spaghetti_ai_Funghi_(Spaghetti_and_Mushrooms_in_Vegan_Cream_Sauce).cook')
-			.then(this.buildUi)
+		const cookFile = new URLSearchParams(window.location.search).get('existing-file')
+		if (cookFile) {
+			return this.fetchRecipe(cookFile).then(this.buildUi)
+		}
+		return this.newUi()
 	}
 }
 
